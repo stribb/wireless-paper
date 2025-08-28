@@ -2,12 +2,13 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include "secrets.h"
+#include <ArduinoOTA.h>
 
 EInkDisplay_WirelessPaperV1_2 display;
 WiFiServer echoServer(7);
 
 // Helper function to update the display
-void updateDisplay(String message) {
+void updateDisplay(const String& message) {
   display.clear();
   display.printCenter(message);
   display.update();
@@ -47,6 +48,37 @@ void setup() {
     // Start the echo server
     echoServer.begin();
     Serial.println("Echo server started on port 7");
+
+    // OTA Setup
+    ArduinoOTA.setHostname("WirelessPaper");
+    // ArduinoOTA.setPassword("admin"); // Removed password
+
+    ArduinoOTA.onStart([]() {
+      Serial.println("OTA Update: Start");
+      updateDisplay("OTA Update...");
+    });
+    ArduinoOTA.onEnd([]() {
+      Serial.println("\nOTA Update: End");
+      updateDisplay("Update Complete!");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("OTA Update: Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+      Serial.printf("OTA Update: Error[%u]: ", error);
+      String err;
+      if (error == OTA_AUTH_ERROR) err = "Auth Failed";
+      else if (error == OTA_BEGIN_ERROR) err = "Begin Failed";
+      else if (error == OTA_CONNECT_ERROR) err = "Connect Failed";
+      else if (error == OTA_RECEIVE_ERROR) err = "Receive Failed";
+      else if (error == OTA_END_ERROR) err = "End Failed";
+      updateDisplay(err);
+      Serial.println(err);
+    });
+
+    ArduinoOTA.begin();
+    Serial.println("OTA service started.");
+
   } else {
     Serial.println("");
     Serial.println("Failed to connect to WiFi!");
@@ -79,4 +111,6 @@ void loop() {
     client.stop();
     Serial.println("Client disconnected");
   }
+
+  ArduinoOTA.handle();
 }
